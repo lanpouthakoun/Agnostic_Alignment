@@ -1,0 +1,20 @@
+python generate_dataset.py \
+    --unsafe_file unsafe_spans.txt \
+    --filler_file fillers.txt \
+    --output dataset.jsonl \
+    --k_per_span_per_bucket 3 \
+    --add_safe_ratio 1.0 \
+    --seed 42
+
+  pip install datasets nltk   
+python get_filler.py \
+    --dataset wikitext \
+    --subset wikitext-103-v1 \
+    --split train \
+    --output fillers.txt
+
+  python extract_prompts.py \ 
+  --data_dir harmless-base \        
+  --split train \       
+  --output unsafe_spans.txt \ 
+  --dedupe 
