@@ -1,7 +1,8 @@
-torch>=2.0.0
-transformers>=4.35.0
-trl>=0.7.0
-datasets>=2.14.0
-accelerate>=0.24.0
-peft>=0.6.0
-
+# --index-url https://download.pytorch.org/whl/cu128
+torch
+torchvision
+torchaudio
+transformers
+trl
+datasets 
+nltk

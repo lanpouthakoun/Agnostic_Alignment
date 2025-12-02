@@ -1,0 +1,60 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Data files
+*.parquet
+*.jsonl
+*.json
+*.csv
+*.tsv
+!config.json
+
+# Model files
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+
+# HuggingFace cache
+.cache/
+huggingface/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+wandb/
+runs/
+outputs/
+
+# Secrets
+.env
+*.key
+secrets.yaml

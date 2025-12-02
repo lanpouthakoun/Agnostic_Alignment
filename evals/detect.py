@@ -1,0 +1,78 @@
+"""
+This file uses LLM as a Judge to Evaluate whether a refusal was made or not.
+
+Looks just at the response from the model
+
+"""
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from vllm import LLM, SamplingParams
+from evals.prompts.prompt import safety_prompt
+
+base_instruction = safety_prompt()
+class JudgeVLLM:
+    def __init__(
+        self,
+        judge_model: str,
+        tensor_parallel_size: int = 1,
+        gpu_memory_utilization: float = 0.9,
+        chat_template: str = None, 
+        instruction: str = base_instruction
+    ):
+        self.model = AutoModelForCausalLM(judge_model)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            judge_model,
+            trust_remote_code=True,
+        )
+        self.instruction = instruction
+        if chat_template:
+            self.tokenizer.chat_template = chat_template
+        
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        self.llm = LLM(
+            model=self.model,
+            tokenizer=self.tokenizer,
+            dtype="bfloat16",
+            tensor_parallel_size=tensor_parallel_size,
+            gpu_memory_utilization=gpu_memory_utilization,
+            trust_remote_code=True,
+            max_model_len=4096,
+        )
+        
+        self.sampling_params = SamplingParams(
+            temperature=0.7,
+            top_p=0.9,
+            max_tokens=512,
+            stop_token_ids=[self.tokenizer.eos_token_id],
+        )
+    
+    def build_prompt(self, input_output_pair: str) -> str:
+        """Build prompt using the model's chat template."""
+        
+        messages = [{"role": "assistant", "content": self.instruction}, {"role": "user", "content": input_output_pair}]
+        
+        
+        prompt = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+        )
+        
+        return prompt
+    
+    def evaluate_batch(self, prompts: list[str]) -> list[dict]:
+        """Evaluate all prompt-prefill combinations."""
+        
+        all_inputs = []
+        
+        for prompt in prompts:
+            full_prompt = self.build_prompt(prompt)
+            all_inputs.append(full_prompt)
+                
+        
+        print(f"Running {len(all_inputs)} generations...")
+        
+        outputs = self.llm.generate(all_inputs, self.sampling_params)
+        return outputs
+        
