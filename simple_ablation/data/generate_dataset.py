@@ -79,48 +79,16 @@ def build_prompt_with_position(
     return text, span_start, span_end
 
 
-def build_safe_prompt(
-    filler_pool: List[str],
-    min_fillers: int = 1,
-    max_fillers: int = 6,
-) -> str:
-    """Build a safe prompt with only filler text."""
-    if not filler_pool:
-        raise ValueError("filler_pool is empty, cannot build safe prompts")
-
-    if max_fillers < min_fillers:
-        raise ValueError("max_fillers must be >= min_fillers")
-
-    total_fillers = random.randint(min_fillers, max_fillers)
-    if total_fillers == 0:
-        # Degenerate but allowed: empty string
-        return ""
-
-    fillers = [random.choice(filler_pool) for _ in range(total_fillers)]
-    text = " ".join(fillers).strip()
-    return text
-
-
 def make_dataset(
     unsafe_spans: List[str],
     filler_pool: List[str],
     out_path: str,
     k_per_span_per_bucket: int = 3,
-    add_safe_ratio: float = 1.0,
     seed: Optional[int] = None,
 ) -> None:
     """
-    Create a dataset with:
-      - Unsafe examples where an unsafe span is placed at front/middle/back.
-      - Safe examples with only filler text.
-
-    Args:
-        unsafe_spans: list of unsafe instruction strings.
-        filler_pool: list of benign filler strings.
-        out_path: output JSONL file path.
-        k_per_span_per_bucket: how many prompts per (span, bucket).
-        add_safe_ratio: ratio of #safe examples to #unsafe examples.
-        seed: random seed for reproducibility.
+    Create a dataset with ONLY UNSAFE examples, where an unsafe span is placed
+    at front/middle/back. Every example has an unsafe span and valid span indices.
     """
 
     if seed is not None:
@@ -130,7 +98,7 @@ def make_dataset(
     examples = []
     ex_id = 0
 
-    # Generate UNSAFE examples
+    # Generate UNSAFE examples (every example contains an unsafe span)
     for span_idx, span in enumerate(unsafe_spans):
         for bucket in buckets:
             for _ in range(k_per_span_per_bucket):
@@ -152,25 +120,6 @@ def make_dataset(
                 examples.append(ex)
                 ex_id += 1
 
-    num_unsafe = len(examples)
-    num_safe = int(num_unsafe * add_safe_ratio)
-
-    # Generate SAFE examples
-    for _ in range(num_safe):
-        text = build_safe_prompt(filler_pool=filler_pool)
-        ex = {
-            "id": ex_id,
-            "text": text,
-            "label": 0,  # safe
-            "span_start": -1,
-            "span_end": -1,
-            "span_type": "none",
-            "position_bucket": "none",
-            "source_span_index": None,
-        }
-        examples.append(ex)
-        ex_id += 1
-
     # Shuffle before writing
     random.shuffle(examples)
 
@@ -180,13 +129,13 @@ def make_dataset(
             f.write(json.dumps(ex, ensure_ascii=False) + "\n")
 
     print(f"Wrote {len(examples)} examples to {out_path}")
-    print(f"  Unsafe: {num_unsafe}")
-    print(f"  Safe:   {num_safe}")
+    print(f"  Unsafe: {len(examples)}")
+    print("  Safe:   0 (disabled)")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate a dataset with unsafe spans randomly placed in prompts."
+        description="Generate a dataset where every example contains an unsafe span."
     )
     parser.add_argument(
         "--unsafe_file",
@@ -213,12 +162,6 @@ def parse_args() -> argparse.Namespace:
         help="How many unsafe prompts to generate for each (span, bucket).",
     )
     parser.add_argument(
-        "--add_safe_ratio",
-        type=float,
-        default=1.0,
-        help="Ratio of number of safe examples to unsafe examples (default 1.0).",
-    )
-    parser.add_argument(
         "--seed",
         type=int,
         default=None,
@@ -243,7 +186,6 @@ def main():
         filler_pool=filler_pool,
         out_path=args.output,
         k_per_span_per_bucket=args.k_per_span_per_bucket,
-        add_safe_ratio=args.add_safe_ratio,
         seed=args.seed,
     )
 
